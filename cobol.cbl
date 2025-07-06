@@ -1,0 +1,131 @@
+IDENTIFICATION DIVISION.
+       PROGRAM-ID. PAYROLL-CALC.
+       AUTHOR. SAMPLE-PROGRAMMER.
+       DATE-WRITTEN. 01/15/2025.
+       
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT EMPLOYEE-FILE ASSIGN TO "EMPLOYEE.DAT"
+           ORGANIZATION IS LINE SEQUENTIAL.
+           SELECT PAYROLL-REPORT ASSIGN TO "PAYROLL.RPT"
+           ORGANIZATION IS LINE SEQUENTIAL.
+       
+       DATA DIVISION.
+       FILE SECTION.
+       FD  EMPLOYEE-FILE.
+       01  EMPLOYEE-RECORD.
+           05  EMP-ID          PIC 9(5).
+           05  EMP-NAME        PIC X(25).
+           05  HOURLY-RATE     PIC 9(3)V99.
+           05  HOURS-WORKED    PIC 9(3)V99.
+       
+       FD  PAYROLL-REPORT.
+       01  REPORT-LINE         PIC X(80).
+       
+       WORKING-STORAGE SECTION.
+       01  WS-EMPLOYEE-RECORD.
+           05  WS-EMP-ID       PIC 9(5).
+           05  WS-EMP-NAME     PIC X(25).
+           05  WS-HOURLY-RATE  PIC 9(3)V99.
+           05  WS-HOURS-WORKED PIC 9(3)V99.
+       
+       01  WS-CALCULATIONS.
+           05  WS-GROSS-PAY    PIC 9(5)V99.
+           05  WS-OVERTIME-PAY PIC 9(5)V99.
+           05  WS-REGULAR-PAY  PIC 9(5)V99.
+           05  WS-OVERTIME-HRS PIC 9(3)V99.
+           05  WS-REGULAR-HRS  PIC 9(3)V99.
+       
+       01  WS-FLAGS.
+           05  WS-EOF-FLAG     PIC X VALUE 'N'.
+               88  END-OF-FILE VALUE 'Y'.
+       
+       01  WS-COUNTERS.
+           05  WS-RECORD-COUNT PIC 9(4) VALUE ZERO.
+           05  WS-TOTAL-GROSS  PIC 9(7)V99 VALUE ZERO.
+       
+       01  WS-REPORT-LINES.
+           05  WS-HEADER-LINE.
+               10  FILLER      PIC X(20) VALUE 'PAYROLL REPORT'.
+               10  FILLER      PIC X(60) VALUE SPACES.
+           05  WS-DETAIL-LINE.
+               10  WS-DET-ID   PIC 9(5).
+               10  FILLER      PIC X(2) VALUE SPACES.
+               10  WS-DET-NAME PIC X(25).
+               10  FILLER      PIC X(2) VALUE SPACES.
+               10  WS-DET-RATE PIC Z(3).99.
+               10  FILLER      PIC X(2) VALUE SPACES.
+               10  WS-DET-HOURS PIC Z(3).99.
+               10  FILLER      PIC X(2) VALUE SPACES.
+               10  WS-DET-GROSS PIC Z(5).99.
+               10  FILLER      PIC X(35) VALUE SPACES.
+           05  WS-TOTAL-LINE.
+               10  FILLER      PIC X(35) VALUE 'TOTAL EMPLOYEES: '.
+               10  WS-TOT-COUNT PIC Z(4).
+               10  FILLER      PIC X(10) VALUE SPACES.
+               10  FILLER      PIC X(15) VALUE 'TOTAL GROSS: '.
+               10  WS-TOT-GROSS PIC Z(7).99.
+               10  FILLER      PIC X(10) VALUE SPACES.
+       
+       PROCEDURE DIVISION.
+       MAIN-ROUTINE.
+           PERFORM INITIALIZATION
+           PERFORM PROCESS-FILE
+           PERFORM FINALIZATION
+           STOP RUN.
+       
+       INITIALIZATION.
+           OPEN INPUT EMPLOYEE-FILE
+           OPEN OUTPUT PAYROLL-REPORT
+           WRITE REPORT-LINE FROM WS-HEADER-LINE
+           MOVE SPACES TO REPORT-LINE
+           WRITE REPORT-LINE
+           PERFORM READ-EMPLOYEE-FILE.
+       
+       PROCESS-FILE.
+           PERFORM UNTIL END-OF-FILE
+               PERFORM CALCULATE-PAY
+               PERFORM WRITE-DETAIL-LINE
+               PERFORM READ-EMPLOYEE-FILE
+           END-PERFORM.
+       
+       READ-EMPLOYEE-FILE.
+           READ EMPLOYEE-FILE INTO WS-EMPLOYEE-RECORD
+               AT END
+                   SET END-OF-FILE TO TRUE
+               NOT AT END
+                   ADD 1 TO WS-RECORD-COUNT
+           END-READ.
+       
+       CALCULATE-PAY.
+           IF WS-HOURS-WORKED > 40
+               COMPUTE WS-REGULAR-HRS = 40
+               COMPUTE WS-OVERTIME-HRS = WS-HOURS-WORKED - 40
+               COMPUTE WS-REGULAR-PAY = WS-REGULAR-HRS * WS-HOURLY-RATE
+               COMPUTE WS-OVERTIME-PAY = WS-OVERTIME-HRS * WS-HOURLY-RATE * 1.5
+               COMPUTE WS-GROSS-PAY = WS-REGULAR-PAY + WS-OVERTIME-PAY
+           ELSE
+               COMPUTE WS-GROSS-PAY = WS-HOURS-WORKED * WS-HOURLY-RATE
+           END-IF
+           ADD WS-GROSS-PAY TO WS-TOTAL-GROSS.
+       
+       WRITE-DETAIL-LINE.
+           MOVE WS-EMP-ID TO WS-DET-ID
+           MOVE WS-EMP-NAME TO WS-DET-NAME
+           MOVE WS-HOURLY-RATE TO WS-DET-RATE
+           MOVE WS-HOURS-WORKED TO WS-DET-HOURS
+           MOVE WS-GROSS-PAY TO WS-DET-GROSS
+           WRITE REPORT-LINE FROM WS-DETAIL-LINE.
+       
+       FINALIZATION.
+           MOVE SPACES TO REPORT-LINE
+           WRITE REPORT-LINE
+           MOVE WS-RECORD-COUNT TO WS-TOT-COUNT
+           MOVE WS-TOTAL-GROSS TO WS-TOT-GROSS
+           WRITE REPORT-LINE FROM WS-TOTAL-LINE
+           CLOSE EMPLOYEE-FILE
+           CLOSE PAYROLL-REPORT
+           DISPLAY 'PAYROLL PROCESSING COMPLETE'
+           DISPLAY 'EMPLOYEES PROCESSED: ' WS-RECORD-COUNT
+           DISPLAY 'TOTAL GROSS PAY: ' WS-TOTAL-GROSS.
